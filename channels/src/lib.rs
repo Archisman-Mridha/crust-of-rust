@@ -146,7 +146,7 @@ mod tests {
 }
 
 /*
-  Channle flavours -
+  Channel flavours -
   |
   |- 1. Asynchronous (Unbounded) channels
   |
