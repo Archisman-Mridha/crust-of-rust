@@ -70,7 +70,7 @@ mod cell {
       let x= Cell::new(vec!{ 42 });
       let first= &x.get( )[0]; ---|
       x.set(vec!{ });             |
-      println!("{}", first);     // Reference to 42 is invalid, since now 42 doesn't even exist
+      println!("{}", first); --- // Reference to 42 is invalid, since now 42 doesn't even exist
                                  // inside the cell.
     */
     pub fn get(&self) -> T where T: Copy {
@@ -125,7 +125,7 @@ mod refCell {
 
       self.currentReferences.set(
         match currentReferences {
-          References::None => References::Shared(0),
+          References::None => References::Shared(1),
           References::Shared(previousImmutableReferenceCount) => References::Shared(previousImmutableReferenceCount + 1),
   
           _ => unreachable!( )
