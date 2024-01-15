@@ -13,10 +13,13 @@ mod tests {
 
     let beforeDelimiter= strtok(&mut x, ' ');
     assert_eq!(beforeDelimiter, "hello");
-    // assert_eq!(x, "world");
-    //                      |
-    //                      |- This will throw error - 'Can't borrow x as mutable since it is already
-    //                                                 borrowed immutably.'
+    /*
+      assert_eq!(x, "world");
+                          |
+                          |- This will throw error - 'Can't borrow x as mutable since it is already
+                                                      borrowed immutably.'
+    */
+
     // Before explaining why it throws this error, let's touch some concepts -
     //
     // 1. IMPLICIT LIFETIME SHORTENING :
@@ -30,19 +33,20 @@ mod tests {
             // lifetime shortening.
             y= x;
           }
-    //
-    // 2. SUBTYPING :
-    //    Implicit lifetime shortening is an example of subtyping. 'static' is a subtype of 'a'.
-    //    A type T is a subtype of type U, if T is at-least as useful as U.
-    //
-    // 3. VARIANCE :
-    //    There are 3 types of variance -
-    //    |
-    //    |- Covariance -
-    //    |    Consider this function - fn foo(x: &'a str) { }.
-    //    |    Here, lifetime of x can be any subtype of 'a'. x is covariant.
-    //    |
-    //    |- Controvariance -
-    //    |    Consider this function - fn foo(x: Fn(y: &'a str) -> ( )) { }.
+    /*
+      2. SUBTYPING :
+        Implicit lifetime shortening is an example of subtyping. 'static' is a subtype of 'a'.
+        A type T is a subtype of type U, if T is at-least as useful as U.
+      
+      3. VARIANCE :
+        There are 3 types of variance -
+        |
+        |- Covariance -
+        |    Consider this function - fn foo(x: &'a str) { }.
+        |    Here, lifetime of x can be any subtype of 'a'. x is covariant.
+        |
+        |- Controvariance -
+        |    Consider this function - fn foo(x: Fn(y: &'a str) -> ( )) { }.
+    */
   }
 }
