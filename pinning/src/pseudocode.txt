@@ -1,0 +1,106 @@
+struct DefaultNotifier(Mutex<Vec<bool>>);
+
+impl Notify for DefaultNotifier {
+	fn notify(&self, futureId: usize) {
+		self.0.lock( )[futureId] = true;
+	}
+}
+
+struct Executor(Arc<Mutex<Vec<bool>>>);
+
+impl Executor {
+	fn runAll<F>(&self, futures: Vec<F>) -> Vec<(usize, Result<F::Item, F::Error>)>
+		where F: Future
+	{
+		let mut done = 0;
+
+		let mut results= Vec::with_capacity(futures.len( ));
+
+		let notifier = Arc::new(DefaultNotifier(Mutex::new(
+			vec![true, futures.len( )] // Initially, all futures should be polled.
+		)));
+		let notifier = NotifyHandle::from(notifier);
+
+		let waitingFor = HashMap<(FileDescriptor, Operation), Task>;
+
+		while done < futures.len( ) {
+			for (i, future) in futures.iter_mut( ).enumerate( ) {
+				// Don't poll the future, if it hasn't been notified.
+				{
+					let wasNotified= !self.0.lock( );
+					if !wasNotified[i] {
+						continue
+					}
+					wasNotified[i] = false;
+				}
+
+				// NOTE : poll( ) should never block.
+				match executor::withNotify(&notifier, i, | | future.poll( )) {
+					Ok(Async::Ready(result)) => {
+						results.push(i, Ok(result));
+						done += 1;
+					},
+
+					Ok(Async::NotReady) => {
+						/*
+							Let this future (i = 5) F be a TCP connection. Some other thread T is interested in
+							this future.
+							
+							So when F says it isn't ready, this current thread, takes F's TaskHandle and gives it
+							to T.
+							
+							So, when a network packet arrives on this TCP connection, T will wake up and unblock
+							this current thread.
+						*/
+
+						// Tokio does this job of notifying / waking up futures.
+
+						continue
+					},
+
+					Err(error) => {
+						results.push(i, Err(error));
+						done += 1;
+					}
+				}
+			}
+
+			// We don't even need the REACTOR thread T.
+			// We'll block until there's some progress for atleast one of the futures.
+			for (fileDescriptor, operation) in epoll(waitingFor.keys( ).collect( )) {
+				let task = waitingFor.remove((fileDescriptor, operation));
+			}
+		}
+
+		results
+	}
+}
+
+enum Operation {
+	CanRead,
+	CanWrite
+}
+
+// What's inside the other thread T (also called the REACTOR thread).
+fn reactorThread(futures: mpsc::Receiver<(Task, FileDescriptor, Operation)>) {
+	let waitingFor = HashMap<(FileDescriptor, Operation), Task>;
+
+	loop {
+		while let Some(task, fileDescriptor, operation) = futures.tryReceive( ) {
+			waitingFor.insert((fileDescriptor, operation), task);
+		}
+
+		/*
+			epoll(
+				vec![
+					// Can we do the given 'operation' for the given 'fileDescriptor' ?
+					(fileDescriptor, operation)
+				]
+			) -> Vec<(fileDescriptor, operation)> // Returns those items for which the answer is 'yes'.
+		*/
+		for (fileDescriptor, operation) in epoll(waitingFor.keys( ).collect( )) {
+			let task = waitingFor.remove((fileDescriptor, operation));
+			task.notify( );
+		}
+	}
+}
